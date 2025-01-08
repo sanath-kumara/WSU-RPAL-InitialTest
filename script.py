@@ -1,37 +1,56 @@
 import cv2
 import numpy as np
+from collections import deque
 
-# Load the maze image
-imagePath = "maze.png" 
-mazeImage = cv2.imread(imagePath, cv2.IMREAD_GRAYSCALE)
+# Load and process the maze image
+ImagePath = "maze.png"
+MazeImage = cv2.imread(ImagePath, cv2.IMREAD_GRAYSCALE)
+_, BinaryMaze = cv2.threshold(MazeImage, 128, 255, cv2.THRESH_BINARY)
+mazeArray = (BinaryMaze == 255).astype(int)  # 1 for paths, 0 for walls
 
-# Threshold the image to binary (Black and White)
-_, binaryMaze = cv2.threshold(mazeImage, 128, 255, cv2.THRESH_BINARY)
+# Define the start and end positions
+StartPosition = (5, 192) 
+EndPosition = (400, 210) 
 
-# Convert binary image to a 2D array 0 for walls, 1 for paths
-mazeArray = (binaryMaze == 255).astype(int)  
+# BFS Algorithm
+def bfs(maze, start, end):
+    rows, cols = maze.shape
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # Up, Down, Left, Right
+    visited = np.zeros_like(maze)  # To keep track of visited nodes
+    queue = deque([(start, [start])])  
 
-startPosition = (192, 0) 
-startColor = 128 
-startRadius = 5  
-cv2.circle(binaryMaze, startPosition, startRadius, startColor, -1)  
+    while queue:
+        (currentRow, currentCol), path = queue.popleft()
 
-endPosition = (210, 407)  
-endColor = 128  
-endRadius = 5 
-cv2.circle(binaryMaze, endPosition, endRadius, endColor, -1) 
+        # Check if robot reached the destination
+        if (currentRow, currentCol) == end:
+            return path
 
-# Save the processed binary maze
-cv2.imwrite("binaryMazeWithDot.png", binaryMaze)
+        # Explore neighbors
+        for dr, dc in directions:
+            newRow, new_col = currentRow + dr, currentCol + dc
 
-# Print size of the binary image
-print("Binary Maze Size (Height x Width):", binaryMaze.shape)
+            # Check bounds and if the cell is a path and not visited
+            if 0 <= newRow < rows and 0 <= new_col < cols:
+                if maze[newRow, new_col] == 1 and not visited[newRow, new_col]:
+                    visited[newRow, new_col] = 1
+                    queue.append(((newRow, new_col), path + [(newRow, new_col)]))
 
-# Print the maze representation as a 2D array
-print("Maze representation as a 2D array:")
-print(mazeArray)
+                    cv2.circle(BinaryMaze, (new_col, newRow), 1, 128, -1)
+                    cv2.imshow("Exploring Maze", BinaryMaze)
+                    cv2.waitKey(1) 
 
-# Display the binary image with the dot
-cv2.imshow("Binary Maze with Dot", binaryMaze)
-cv2.waitKey(0)  
-cv2.destroyAllWindows()   
+    return None 
+
+Path = bfs(mazeArray, StartPosition, EndPosition)
+
+if Path:
+    for row, col in Path:
+        cv2.circle(BinaryMaze, (col, row), 1, (0, 0, 255), -1)
+        cv2.imshow("Final Path", BinaryMaze)
+        cv2.waitKey(10)  
+else:
+    print("No path found.")
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()  
